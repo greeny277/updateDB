@@ -6,7 +6,7 @@ import Types
 import Data.Time.Calendar
 import Data.Conduit
 import Conduit
-import Data.Text (Text, unpack)
+import qualified Data.Text as T
 import Control.Monad (void)
 import Text.XML
 --import Text.XML.Cursor
@@ -16,7 +16,7 @@ import Text.Read (readMaybe)
 import Text.XML.Stream.Parse
 import qualified Data.ByteString as B
 import Database.PostgreSQL.Simple (Connection)
-
+import Data.Text.Encoding (encodeUtf8)
 import PostgresUpdater (upsertPerson)
 
 {-| The 'parseXML' function reads the input of a XML file that consists of a table
@@ -48,7 +48,7 @@ parseMember= do
             lname <- force "lastname tag missing tag missing" $ tagNoAttr "lastname" content
             dob   <- force "date-of-birth tag missing" $ tagNoAttr "date-of-birth" content
             phone <- force "phone tag missing" $ tagNoAttr "phone" content
-            let dobMay = (readMaybe :: String -> Maybe Day) (unpack dob)
+            let dobMay = (readMaybe :: String -> Maybe Day) (T.unpack dob)
             return $ Person fname lname dobMay phone
         case p of
             Just person -> do
@@ -60,6 +60,9 @@ parseMembers :: MonadThrow m => ConduitT Event Person m ()
 parseMembers = void $ force "no members tag" $
     tagNoAttr "members" $ many parseMember
 
-parseAndFillDB :: FilePath -> Connection -> IO ()
-parseAndFillDB file conn =
-        runConduitRes $ parseFile def file .| parseMembers .| mapM_C (liftIO . upsertPerson conn)
+parseXMLToCSV :: FilePath -> FilePath -> Connection -> IO ()
+parseXMLToCSV xmlFile csvFile conn =
+        runConduitRes $ parseFile def xmlFile .| parseMembers .| mapC (\p -> T.intercalate ";" [fname p, lname p, dobHelper (dob p), tel p `T.snoc`  '\n']) .| mapC encodeUtf8 .| sinkFile csvFile
+        where dobHelper :: Maybe Day -> T.Text
+              dobHelper Nothing = "\\null"
+              dobHelper (Just d) = T.pack (show d)

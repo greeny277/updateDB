@@ -9,6 +9,8 @@ import Data.String
 import Control.Exception
 import Control.Monad
 import Data.Time.Calendar
+import System.Posix.Directory
+import System.FilePath
 
 defaultDBUser = "greeny"
 defaultDBPw   = "garfield"
@@ -45,9 +47,9 @@ insertPerson db conn p =
 
 createTmpDB :: Connection -> IO String
 createTmpDB conn = do
-        putStr $  "Temporarily databasename (default: " ++ defaultDBTmpName ++ ")"
+        putStrLn $  "Temporarily databasename (default: " ++ defaultDBTmpName ++ ")"
         dbTmpName <- getLine >>= (\l -> if null l then return defaultDBTmpName else return l)
-        (execute_ conn (fromString ("create table " ++ dbTmpName ++ " (fname character varying, lname character varying, dob date, phone character(10), UNIQUE (fname, lname, dob))")) >> return dbTmpName) `catch` sqlErrHandler
+        (execute_ conn (fromString ("CREATE TEMP TABLE " ++ dbTmpName ++ " AS SELECT * FROM person LIMIT 0;")) >> return dbTmpName) `catch` sqlErrHandler
         where
                   sqlErrHandler e@(SqlError _ _ msg _ _) = if "already exists" `isInfixOf` msg
                                                              then do
@@ -55,9 +57,16 @@ createTmpDB conn = do
                                                                  createTmpDB conn
                                                              else throwIO e
 
-upsertDatabase :: String -> Connection -> IO Int
-upsertDatabase tmpDB conn = do
-        let upsertCmd = fromString ("INSERT INTO person SELECT fname, lname, dob, phone FROM " ++ tmpDB ++ "ON CONFLICT (fname,lname, dob) DO UPDATE SET phone = excluded.phone;")
+copyCSV2Datebase :: Connection -> FilePath -> String -> IO ()
+copyCSV2Datebase conn rel dbName = do
+        abs <- getWorkingDirectory
+        let full = abs </> rel
+        putStrLn $ "Start copying from file:" ++ full ++ " into database " ++ dbName
+        void $ execute_ conn (fromString ("COPY " ++ dbName ++ " FROM '" ++ full ++ "' WITH (FORMAT csv, DELIMITER ';', NULL '\\null')"))
+
+upsertDatabase :: Connection -> String -> IO Int
+upsertDatabase conn tmpDB = do
+        let upsertCmd = fromString ("INSERT INTO person SELECT fname, lname, dob, phone FROM " ++ tmpDB ++ " ON CONFLICT (fname,lname, dob) DO UPDATE SET phone = excluded.phone;")
         fmap fromIntegral (execute_ conn upsertCmd)
 
 

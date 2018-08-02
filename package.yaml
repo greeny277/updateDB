@@ -28,6 +28,8 @@ dependencies:
 - xml-types
 - text
 - postgresql-simple
+- unix
+- filepath
 
 library:
   source-dirs: src
