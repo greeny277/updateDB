@@ -25,6 +25,7 @@ dependencies:
 - conduit
 - time
 - xml-conduit
+- xml-types
 - text
 - postgresql-simple
 
