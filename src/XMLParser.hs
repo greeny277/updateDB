@@ -10,11 +10,11 @@ import Text.XML
 import Text.XML.Cursor
 import Data.Monoid (mconcat)
 
-parseXML :: FilePath -> IO ()
+parseXML :: FilePath -> IO [Person]
 parseXML file = do
         doc <- Text.XML.readFile def file
         let cursor = fromDocument doc
-        print $ cursor $// element "member" >=> parsePerson
+        return $ cursor $// element "member" >=> parsePerson
 
 parsePerson :: Cursor -> [Person]
 parsePerson c = do

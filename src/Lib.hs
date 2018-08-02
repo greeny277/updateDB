@@ -11,4 +11,6 @@ import Types
 pathToXML = "data/update-file.xml"
 
 someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+someFunc = do
+        persons <- parseXML pathToXML
+        updateProcess persons
