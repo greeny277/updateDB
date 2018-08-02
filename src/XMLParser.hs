@@ -2,8 +2,7 @@
 
 module XMLParser where
 
-import Lib (Person(..))
-
+import Types
 import Data.Time.Calendar
 import Data.Conduit
 import Data.Text (Text, unpack)

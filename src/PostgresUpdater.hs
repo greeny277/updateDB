@@ -2,7 +2,7 @@
 
 module PostgresUpdater where
 
-import Lib (Person(..))
+import Types
 import Database.PostgreSQL.Simple
 import Data.ByteString (isInfixOf)
 import Data.String
