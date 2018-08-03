@@ -23,14 +23,14 @@ dependencies:
 - base >= 4.7 && < 5
 - bytestring
 - conduit
-- time
-- xml-conduit
-- xml-types
-- text
-- postgresql-simple
-- unix
-- filepath
 - containers
+- filepath
+- postgresql-simple
+- text
+- time
+- xml-types
+- xml-conduit
+- unix
 
 library:
   source-dirs: src
