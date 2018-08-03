@@ -1,6 +1,12 @@
 Explanation of module and my approach
 =====
 
+Author
+---
+
+Name: Christian Bay
+Mail: christian.bay@posteo.de
+
 Tools
 ---
 
@@ -26,6 +32,7 @@ CREATE TABLE person (
 	phone character(10),
 	UNIQUE (fname, lname, dob)
 );
+
 
 Approaches
 ----
@@ -58,6 +65,7 @@ With this in hand I used my streaming module to parse the XML and save it as CSV
 temporary database is created and filled with data from the CSV file by using the COPY command.
 At last I use an Insert/Update query to merge both.
 
+For further questions consider viewing the git history or just send me a mail.
 
 Usage
 ---
