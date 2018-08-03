@@ -1,46 +1,45 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-|
+Module      : XMLParser
+Description : A module that parses entries of a XML file and saves them into a csv file
+Copyright   : (c) Christian Bay, 2018
+License     : GPL-3
+Maintainer  : christian.bay@posteo.net
+Stability   : experimental
+Portability : POSIX
 
+This module reads from the XML that contains the persons that need to be updated.
+The parsing process is done with the streaming library `conduit`. The librarie allows
+to deal with huge datastreams in a pleasent way.
+-}
 module XMLParser where
 
-import Types
-import Data.Time.Calendar
-import Data.Conduit
+import PostgresUpdater (upsertPerson)
+import Types (Person (..))
+
+
 import Conduit
-import qualified Data.Text as T
 import Control.Monad (void)
-import Text.XML
---import Text.XML.Cursor
+
 import Data.Monoid (mconcat)
+import qualified Data.Text as T (Text, intercalate, snoc, pack, unpack)
+import Data.Time.Calendar (Day)
+import Data.Text.Encoding (encodeUtf8)
 import Data.XML.Types (Event)
+import Database.PostgreSQL.Simple (Connection)
+
 import Text.Read (readMaybe)
 import Text.XML.Stream.Parse
-import qualified Data.ByteString as B
-import Database.PostgreSQL.Simple (Connection)
-import Data.Text.Encoding (encodeUtf8)
-import PostgresUpdater (upsertPerson)
 
-{-| The 'parseXML' function reads the input of a XML file that consists of a table
-  describing persons. For each entry the values are extracted and parsed as a 'Person'
--}
---parseXML :: FilePath -> IO [Person]
---parseXML file = do
---        doc <- Text.XML.readFile def file
---        let cursor = fromDocument doc
---        return $ cursor $// element "member" >=> parsePerson
-
---parsePerson :: Cursor -> [Person]
---parsePerson c = do
---        let fname = c $/ element "firstname" &/ content
---        let lname = c $/ element "lastname" &/ content
---        let dob = c $/ element "date-of-birth" &/ content
---        let phone = c $/ element "phone" &/ content
---        [Person (mconcat fname) (mconcat lname) (read . unpack . mconcat $ dob) (mconcat phone)]
---
--- | Read in file as a stream
-fileInput :: (MonadIO m, MonadResource m, MonadThrow m) => String -> ConduitT () Event m ()
+{- Read in a file as a stream and
+-  parse the bytestrings to xml events -}
+fileInput :: (MonadIO m, MonadResource m, MonadThrow m) =>
+          String -> -- ^ source file
+          ConduitT () Event m () -- ^ Stream of events
 fileInput f = sourceFile f .| parseBytes def
 
-
+{- Parse the downstream xml events to persons and send them upstream
+-}
 parseMember:: MonadThrow m => ConduitT Event Person m (Maybe Person)
 parseMember= do
         p <- tagNoAttr "member" $ do
@@ -56,13 +55,21 @@ parseMember= do
                             return p
             Nothing -> return Nothing
 
+{- Parse each person in tag `members`
+-}
 parseMembers :: MonadThrow m => ConduitT Event Person m ()
 parseMembers = void $ force "no members tag" $
     tagNoAttr "members" $ many parseMember
 
-parseXMLToCSV :: FilePath -> FilePath -> Connection -> IO ()
+{-
+- Parse the whole XML files and write the parsed persons to a CSV file
+-}
+parseXMLToCSV :: FilePath   -- ^ Path to xml file
+              -> FilePath   -- ^ Path to csv file
+              -> Connection -- ^ Connection to psql server
+              -> IO ()      -- ^ IO Action
 parseXMLToCSV xmlFile csvFile conn =
         runConduitRes $ parseFile def xmlFile .| parseMembers .| mapC (\p -> T.intercalate ";" [fname p, lname p, dobHelper (dob p), tel p `T.snoc`  '\n']) .| mapC encodeUtf8 .| sinkFile csvFile
         where dobHelper :: Maybe Day -> T.Text
-              dobHelper Nothing = "\\null"
+              dobHelper Nothing = "\\null" -- "\null" represents the NULL value in the csv file
               dobHelper (Just d) = T.pack (show d)
