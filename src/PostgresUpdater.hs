@@ -28,10 +28,10 @@ import Database.PostgreSQL.Simple
 import System.FilePath
 import System.Posix.Directory
 
-defaultDBUser = "greeny"
+defaultDBUser = "user"
 defaultDBHost = "localhost"
-defaultDBPw   = "garfield"
-defaultDBName = "greeny"
+defaultDBPw   = "12345"
+defaultDBName = "my-db"
 defaultDBTmpName = "updatePerson"
 
 connectToDb :: IO Connection
