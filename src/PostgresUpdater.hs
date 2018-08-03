@@ -13,6 +13,7 @@ import System.Posix.Directory
 import System.FilePath
 
 defaultDBUser = "greeny"
+defaultDBHost = "localhost"
 defaultDBPw   = "garfield"
 defaultDBName = "greeny"
 defaultDBTmpName = "updatePerson"
@@ -27,7 +28,10 @@ connectToDb = do
         dbPw <- getLine >>= (\l -> if null l then return defaultDBPw else return l)
         putStrLn $  "Databasename (default: " ++ defaultDBName ++ "):"
         dbName <- getLine >>= (\l -> if null l then return defaultDBUser else return l)
-        connect defaultConnectInfo { connectUser = dbUser, connectPassword = dbPw, connectDatabase = dbName }
+        putStrLn $  "Hostname (default: " ++ defaultDBHost ++ "):"
+        dbHost <- getLine >>= (\l -> if null l then return defaultDBHost else return l)
+
+        connect defaultConnectInfo { connectUser = dbUser, connectPassword = dbPw, connectDatabase = dbName, connectHost = dbHost }
 
 dropDB :: String -> Connection -> IO ()
 dropDB dbName conn =
@@ -45,16 +49,16 @@ insertPerson :: String -> Connection -> Person -> IO ()
 insertPerson db conn p =
         void $ execute conn (fromString ("insert into " ++ db ++ " (fname,lname,dob,phone) values (?,?,?,?)")) (fname p, lname p, dob p, tel p)
 
-createTmpDB :: Connection -> IO String
-createTmpDB conn = do
+createTmpDB :: Connection -> String -> IO String
+createTmpDB conn dbPerson = do
         putStrLn $  "Temporarily databasename (default: " ++ defaultDBTmpName ++ ")"
         dbTmpName <- getLine >>= (\l -> if null l then return defaultDBTmpName else return l)
-        (execute_ conn (fromString ("CREATE TEMP TABLE " ++ dbTmpName ++ " AS SELECT * FROM person LIMIT 0;")) >> return dbTmpName) `catch` sqlErrHandler
+        (execute_ conn (fromString ("CREATE TEMP TABLE " ++ dbTmpName ++ " AS SELECT * FROM " ++ dbPerson ++ " LIMIT 0;")) >> return dbTmpName) `catch` sqlErrHandler
         where
                   sqlErrHandler e@(SqlError _ _ msg _ _) = if "already exists" `isInfixOf` msg
                                                              then do
                                                                  putStrLn "This tablename already exists; please insert another one."
-                                                                 createTmpDB conn
+                                                                 createTmpDB conn dbPerson
                                                              else throwIO e
 
 copyCSV2Datebase :: Connection -> FilePath -> String -> IO ()
@@ -64,13 +68,13 @@ copyCSV2Datebase conn rel dbName = do
         putStrLn $ "Start copying from file:" ++ full ++ " into database " ++ dbName
         void $ execute_ conn (fromString ("COPY " ++ dbName ++ " FROM '" ++ full ++ "' WITH (FORMAT csv, DELIMITER ';', NULL '\\null')"))
 
-upsertDatabase :: Connection -> String -> IO Int
-upsertDatabase conn tmpDB = do
-        let upsertCmd = fromString ("INSERT INTO person SELECT fname, lname, dob, phone FROM " ++ tmpDB ++ " ON CONFLICT (fname,lname, dob) DO UPDATE SET phone = excluded.phone;")
+upsertDatabase :: Connection -> String -> String -> IO Int
+upsertDatabase conn tmpDB dbPerson = do
+        let upsertCmd = fromString ("INSERT INTO " ++ dbPerson ++ " SELECT fname, lname, dob, phone FROM " ++ tmpDB ++ " ON CONFLICT (fname,lname, dob) DO UPDATE SET phone = excluded.phone;")
         fmap fromIntegral (execute_ conn upsertCmd)
 
 
-upsertPerson :: Connection -> Person -> IO ()
-upsertPerson conn p = do
-        let upsertCmd = fromString "INSERT INTO person (fname, lname, dob, phone) values (?,?,?,?) ON CONFLICT (fname,lname, dob) DO UPDATE SET phone = excluded.phone;"
+upsertPerson :: Connection -> String -> Person -> IO ()
+upsertPerson conn dbPerson p = do
+        let upsertCmd = fromString ("INSERT INTO " ++ dbPerson ++ " (fname, lname, dob, phone) values (?,?,?,?) ON CONFLICT (fname,lname, dob) DO UPDATE SET phone = excluded.phone;")
         void $ execute conn upsertCmd (fname p, lname p, dob p, tel p)
