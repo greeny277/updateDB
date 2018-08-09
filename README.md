@@ -99,4 +99,13 @@ the queries and the datatype representing which represents a single person needs
 the first problem a suitable query exists, I guess. For the datatype representation I do not see
 an easy solution. One might to consider to do without a Person datatype and just send the parsed
 contents of the XML tags directly to a CSV file. But the tags still need to be named, so what's the
-point?
+point? Finally, I want to add that using the Lens library for accessing the fields of a person might
+be a better style.
+
+
+Conclusion
+----
+
+I think this was really fun because on the way I learned how to use Conduit and refreshed my
+knowledge regarding databases. Also the first time I used an Haskell library for XML parsing,
+because usually i stick to JSON.
