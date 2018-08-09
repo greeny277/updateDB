@@ -87,7 +87,7 @@ stack exec updateDB-exe
 
 The program will ask for several input data. Like the name of the database, username, password, path
 to source files.
-It is recommended to save the XML and CSV file under `date/`
+It is recommended to save the XML and CSV file under `data/`
 
 
 Discussion
